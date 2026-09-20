@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: rudis-reifenklicker
+  labels:
+    app: postgres
+data:
+  # Wird vom offiziellen Postgres-Image beim ersten Start (leeres Daten-
+  # verzeichnis) unter /docker-entrypoint-initdb.d ausgefuehrt.
+  init.sql: |
+    CREATE TABLE IF NOT EXISTS tire_counter (
+        id         integer PRIMARY KEY,
+        count      bigint NOT NULL DEFAULT 0,
+        updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    INSERT INTO tire_counter (id, count) VALUES (1, 0)
+    ON CONFLICT (id) DO NOTHING;

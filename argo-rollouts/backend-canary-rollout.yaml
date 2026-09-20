@@ -1,0 +1,88 @@
+# Canary-Rollout fuer das Backend.
+#
+# Ersetzt das Deployment aus k8s/20-backend-deployment.yaml. Vor dem
+# Anwenden das Deployment loeschen (gleicher Selektor!):
+#
+#   kubectl -n rudis-reifenklicker delete deployment backend
+#   kubectl -n rudis-reifenklicker apply -f argo-rollouts/
+#
+# Hinweis: Ohne Traffic-Router (k3s-Traefik) teilt Argo Rollouts den
+# Verkehr ueber das Replica-Verhaeltnis auf. Der bestehende Service
+# "backend" selektiert stabile und Canary-Pods gemeinsam.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: backend
+  namespace: rudis-reifenklicker
+  labels:
+    app: backend
+spec:
+  replicas: 4
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/stafel/rudis-reifenklicker/backend:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          env:
+            - name: DB_HOST
+              value: postgres
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_DB
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /api/readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+  strategy:
+    canary:
+      # "Räderwechsel in Stufen": 25% -> 50% -> 75% -> 100%
+      steps:
+        - setWeight: 25
+        - pause: { duration: 60s }
+        - setWeight: 50
+        - pause: { duration: 60s }
+        - setWeight: 75
+        - pause: { duration: 60s }

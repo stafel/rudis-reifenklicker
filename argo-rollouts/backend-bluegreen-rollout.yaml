@@ -1,0 +1,89 @@
+# Blue/Green-Rollout fuer das Backend.
+#
+# Zwei Services: "backend" (aktiv/Blue) und "backend-preview" (Green).
+# Argo Rollouts patcht die Selektoren und schaltet erst nach manueller
+# Freigabe um:
+#
+#   kubectl argo rollouts promote backend
+#   kubectl argo rollouts abort backend      # Rollback auf Blue
+#
+# Voraussetzung: k8s/21-backend-svc.yaml und dieser Preview-Service
+# existieren. Das Deployment vorher loeschen (gleicher Selektor).
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: backend
+  namespace: rudis-reifenklicker
+  labels:
+    app: backend
+spec:
+  replicas: 4
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/stafel/rudis-reifenklicker/backend:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          env:
+            - name: DB_HOST
+              value: postgres
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_DB
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /api/readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+  strategy:
+    blueGreen:
+      activeService: backend
+      previewService: backend-preview
+      # Kein automatischer Switch: erst nach Promote wird Green aktiv.
+      autoPromotionEnabled: false
+      # Smoke-Test der Green-Umgebung vor der Freigabe.
+      prePromotionAnalysis:
+        templates:
+          - templateName: backend-smoke-test
+      scaleDownDelaySeconds: 30

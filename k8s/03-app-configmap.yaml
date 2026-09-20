@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: rudis-reifenklicker
+  labels:
+    app: backend
+data:
+  # Feature-Toggle (Deploy != Release): true zeigt die Goldfelge und
+  # vergibt Bonus-Reifen. Aenderung erfordert einen Pod-Neustart.
+  FEATURE_GOLDEN_RIM: "false"
+  CLICK_STEP: "1"
+  GOLDEN_RIM_BONUS: "10"
+  GOLDEN_RIM_CHANCE: "0.1"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: rudis-reifenklicker
+  labels:
+    app: frontend
+data:
+  # Wird als Datei in den Frontend-Pod gemountet und ersetzt config.js.
+  config.js: |
+    window.APP_CONFIG = {
+      appName: "Rudis Reifenklicker",
+      apiBase: "",
+      pollMs: 2000
+    };

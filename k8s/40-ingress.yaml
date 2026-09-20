@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: reifenklicker
+  namespace: rudis-reifenklicker
+  labels:
+    app.kubernetes.io/part-of: rudis-reifenklicker
+spec:
+  # k3s bringt Traefik mit.
+  ingressClassName: traefik
+  rules:
+    # Kein host: erreichbar ueber die Node-/VM-IP.
+    - http:
+        paths:
+          # /api geht direkt an das Backend ...
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          # ... alles andere an das Frontend.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

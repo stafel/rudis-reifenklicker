@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: rudis-reifenklicker
+  namespace: argocd
+spec:
+  description: Rudis Reifenklicker - Deployment-Uebung
+  sourceRepos:
+    - https://github.com/stafel/rudis-reifenklicker.git
+  destinations:
+    - namespace: rudis-reifenklicker
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

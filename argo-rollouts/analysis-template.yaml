@@ -1,0 +1,39 @@
+# Optionaler Smoke-Test als AnalysisTemplate (ohne Prometheus).
+#
+# Ein Kubernetes-Job ruft die Green-/Preview-Umgebung auf. Schlaegt der
+# Aufruf fehl, bricht das Blue/Green-Rollout automatisch ab.
+#
+# Wird vom Blue/Green-Rollout als prePromotionAnalysis verwendet.
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: backend-smoke-test
+  namespace: rudis-reifenklicker
+spec:
+  args:
+    - name: service
+      value: backend-preview
+  metrics:
+    - name: smoke
+      # Ein einzelner Versuch mit Retry-Schleife im Job selbst.
+      count: 1
+      failureLimit: 0
+      provider:
+        job:
+          spec:
+            backoffLimit: 0
+            template:
+              spec:
+                restartPolicy: Never
+                containers:
+                  - name: smoke
+                    image: curlimages/curl:8.10.1
+                    command:
+                      - sh
+                      - -c
+                      - >-
+                        for i in $(seq 1 10); do
+                          curl -sf "http://{{args.service}}:8000/api/readyz" && exit 0;
+                          sleep 3;
+                        done;
+                        exit 1

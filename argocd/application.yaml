@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rudis-reifenklicker
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: rudis-reifenklicker
+  source:
+    repoURL: https://github.com/stafel/rudis-reifenklicker.git
+    targetRevision: main
+    path: k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rudis-reifenklicker
+  syncPolicy:
+    automated:
+      # Drift-Experiment: ArgoCD setzt manuelle Aenderungen zurueck (Self-Heal)
+      # und entfernt Ressourcen, die nicht mehr in Git stehen (Prune).
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  # Der HPA darf die Replica-Zahl setzen, ohne dass ArgoCD dazwischenfunkt.
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      name: backend
+      jsonPointers:
+        - /spec/replicas

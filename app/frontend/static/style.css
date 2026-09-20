@@ -1,0 +1,199 @@
+:root {
+  --bg: #17191c;
+  --bg-soft: #212428;
+  --panel: #1e2125;
+  --line: #33383e;
+  --tread: #101113;
+  --text: #eef1f4;
+  --muted: #9aa3ad;
+  --red: #c8102e;
+  --red-dark: #8f0b20;
+  --gold: #ffd33d;
+  --ok: #35c46b;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  color: var(--text);
+  background-color: var(--bg);
+  background-image:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.018) 0 14px, transparent 14px 28px),
+    radial-gradient(circle at 50% 0%, #262a2f 0%, var(--bg) 55%);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: rgba(16, 17, 19, 0.9);
+  border-bottom: 3px solid var(--red);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--red);
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: inset 0 -4px 0 var(--red-dark);
+}
+
+.brand-text h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+}
+
+.brand-text p {
+  margin: 0.1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.season-badge {
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+
+body[data-version="v2"] .season-badge {
+  background: #123246;
+  border-color: #2b6f9c;
+  color: #cdeaff;
+}
+
+body[data-version="v1"] .season-badge {
+  background: #3a2b12;
+  border-color: #8f6a1f;
+  color: #ffe6b8;
+}
+
+/* Winter-Edition bekommt einen kuehleren Akzent. */
+body[data-version="v2"] .brand-mark { background: #1f6f9c; box-shadow: inset 0 -4px 0 #14506f; }
+body[data-version="v2"] .topbar { border-bottom-color: #1f6f9c; }
+
+.stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem 3rem;
+  text-align: center;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.counter {
+  font-size: clamp(2.6rem, 8vw, 4.5rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  margin: 0.2rem 0 1rem;
+}
+
+.wheel {
+  width: min(340px, 72vw);
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.55));
+  transition: transform 0.08s ease;
+}
+
+.wheel:active { transform: scale(0.96); }
+
+.wheel-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.wheel.spin .wheel-svg {
+  animation: spin 0.5s cubic-bezier(0.25, 0.8, 0.35, 1);
+}
+
+.wheel.gold .rim { fill: url(#goldGrad); }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 1.1rem 0 0;
+}
+
+.golden-note {
+  margin-top: 0.6rem;
+  color: var(--gold);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.floating {
+  position: fixed;
+  pointer-events: none;
+  font-weight: 800;
+  font-size: 1.4rem;
+  color: var(--red);
+  animation: float-up 0.9s ease-out forwards;
+  z-index: 10;
+}
+
+.floating.golden { color: var(--gold); }
+
+@keyframes float-up {
+  from { transform: translate(-50%, 0); opacity: 1; }
+  to { transform: translate(-50%, -70px); opacity: 0; }
+}
+
+.statusbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--line);
+  background: rgba(16, 17, 19, 0.9);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.status { font-variant-numeric: tabular-nums; }
+
+#connection-badge.offline { color: #ff8080; }
