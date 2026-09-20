@@ -6,6 +6,8 @@
 #
 #    Play 1  k3s Server auf den Control-Nodes (k3s_control)
 #    Play 2  k3s Agenten auf den Worker-Nodes (k3s_agents)
+#            wird automatisch uebersprungen, wenn die Gruppe leer oder
+#            gar nicht im Inventory vorhanden ist (Single-Node-Cluster)
 #    Play 3  Devtools auf dem lokalen Arbeitsplatz + kubectl gegen k3s
 #    Play 4  ArgoCD, Argo Rollouts, metrics-server (und optional Prometheus)
 #
@@ -13,7 +15,9 @@
 #      ansible-playbook playbook-k3s-cluster.yaml
 #
 #  Voraussetzungen:
-#      - Inventory-Gruppen k3s_control / k3s_agents gefuellt
+#      - Inventory-Gruppe k3s_control gefuellt (k3s_agents ist optional:
+#        ohne Worker laeuft alles auf dem Control-Node, der den Agenten
+#        bereits mitbringt)
 #      - SSH-Zugriff mit key und passwortlosem sudo
 #      - Internet auf allen Nodes
 # =============================================================================
@@ -108,6 +112,9 @@
 # -----------------------------------------------------------------------------
 # Play 2 - k3s Agenten (Worker-Nodes)
 # -----------------------------------------------------------------------------
+# Hinweis: Ist die Gruppe k3s_agents leer oder nicht im Inventory, wird
+# dieses Play automatisch uebersprungen (Single-Node-Cluster). Der
+# k3s-Server aus Play 1 bringt den Agenten bereits mit.
 - name: "Play 2 - k3s Agenten installieren"
   hosts: k3s_agents
   become: true

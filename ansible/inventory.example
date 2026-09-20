@@ -3,11 +3,15 @@
 #   cp inventory.example inventory
 #   ansible-playbook playbook-k3s-cluster.yaml
 #
-# Bei nur einer VM diese gleichzeitig als Control- und Agent-Node
-# eintragen (dann ist es ein Single-Node-Cluster).
+# Single-Node-Cluster: Es genuegt, NUR [k3s_control] zu fuellen. Der
+# k3s-Server bringt den Agenten bereits mit und ist schedulable, es sind
+# also keine Worker noetig. [k3s_agents] darf leer bleiben oder ganz
+# fehlen - Play 2 wird dann automatisch uebersprungen.
+#
+# Mehrere Nodes: Control-Node unter [k3s_control], Worker unter [k3s_agents].
 
 [k3s_control]
-lab01 ansible_host=192.168.122.35 ansible_user=ansible
+#lab01 ansible_host=192.168.122.35 ansible_user=ansible
 
-[k3s_agents]
-lab02 ansible_host=192.168.122.128 ansible_user=ansible
+#[k3s_agents]
+#lab02 ansible_host=192.168.122.128 ansible_user=ansible
