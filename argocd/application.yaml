@@ -14,18 +14,8 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: rudis-reifenklicker
+  # Default: manueller Sync (kein Self-Heal/Prune).
+  # Sync-Policy und ignoreDifferences werden im Arbeitsblatt konfiguriert.
   syncPolicy:
-    automated:
-      # Drift-Experiment: ArgoCD setzt manuelle Aenderungen zurueck (Self-Heal)
-      # und entfernt Ressourcen, die nicht mehr in Git stehen (Prune).
-      prune: true
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true
-  # Der HPA darf die Replica-Zahl setzen, ohne dass ArgoCD dazwischenfunkt.
-  ignoreDifferences:
-    - group: apps
-      kind: Deployment
-      name: backend
-      jsonPointers:
-        - /spec/replicas

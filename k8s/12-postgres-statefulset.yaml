@@ -33,8 +33,6 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
-            - name: init
-              mountPath: /docker-entrypoint-initdb.d
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", "reifenklicker", "-d", "reifenklicker"]
@@ -52,10 +50,6 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
-      volumes:
-        - name: init
-          configMap:
-            name: postgres-init
   volumeClaimTemplates:
     - metadata:
         name: data
