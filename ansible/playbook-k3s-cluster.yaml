@@ -81,6 +81,20 @@
       ansible.builtin.set_fact:
         k3s_token: "{{ k3s_token_raw.content | b64decode | trim }}"
 
+    - name: "Auf die k3s-Kubeconfig warten"
+      ansible.builtin.wait_for:
+        path: /etc/rancher/k3s/k3s.yaml
+        timeout: 180
+
+    - name: "k3s-Kubeconfig auslesen"
+      ansible.builtin.slurp:
+        src: /etc/rancher/k3s/k3s.yaml
+      register: k3s_kubeconfig_raw
+
+    - name: "Kubeconfig als Fakt bereitstellen"
+      ansible.builtin.set_fact:
+        k3s_kubeconfig_b64: "{{ k3s_kubeconfig_raw.content }}"
+
     - name: "k3s Status anzeigen"
       ansible.builtin.command:
         cmd: k3s kubectl get nodes -o wide
@@ -304,20 +318,12 @@
         state: directory
         mode: "0700"
 
-    - name: "k3s Kubeconfig vom Control-Node lesen"
-      become: true
-      become_method: su
-      ansible.builtin.slurp:
-        src: /etc/rancher/k3s/k3s.yaml
-      register: k3s_kubeconfig_raw
-      delegate_to: "{{ k3s_control_host }}"
-
     - name: "Kubeconfig schreiben (Server-URL auf die Control-IP umbiegen)"
       ansible.builtin.copy:
         dest: "{{ kube_dir }}/rudis-reifenklicker.yaml"
         mode: "0600"
         content: >-
-          {{ (k3s_kubeconfig_raw.content | b64decode)
+          {{ (hostvars[k3s_control_host].k3s_kubeconfig_b64 | b64decode)
              | replace('https://127.0.0.1:6443', 'https://' ~ k3s_control_ip ~ ':6443') }}
 
     - name: "Kontext umbenennen (default -> rudis-reifenklicker)"
