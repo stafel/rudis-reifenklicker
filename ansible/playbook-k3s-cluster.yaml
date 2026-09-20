@@ -97,6 +97,7 @@
 - name: "Play 2 - k3s Agenten installieren"
   hosts: k3s_agents
   become: true
+  become_method: su
   gather_facts: true
 
   vars:
@@ -196,6 +197,7 @@
 
     - name: "kubectl installieren"
       become: true
+      become_method: su
       ansible.builtin.get_url:
         url: "https://dl.k8s.io/release/{{ kubectl_stable.content | trim }}/bin/linux/{{ tool_arch }}/kubectl"
         dest: /usr/local/bin/kubectl
@@ -204,6 +206,7 @@
     # --- helm --------------------------------------------------------------
     - name: "Helm installieren"
       become: true
+      become_method: su
       ansible.builtin.shell:
         cmd: curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
         creates: /usr/local/bin/helm
@@ -211,6 +214,7 @@
     # --- ArgoCD CLI --------------------------------------------------------
     - name: "ArgoCD CLI installieren"
       become: true
+      become_method: su
       ansible.builtin.get_url:
         url: "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-{{ tool_arch }}"
         dest: /usr/local/bin/argocd
@@ -219,6 +223,7 @@
     # --- Argo Rollouts kubectl-Plugin -------------------------------------
     - name: "kubectl argo rollouts Plugin installieren"
       become: true
+      become_method: su
       ansible.builtin.get_url:
         url: "https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-{{ tool_arch }}"
         dest: /usr/local/bin/kubectl-argo-rollouts
@@ -233,6 +238,7 @@
 
     - name: "k9s installieren"
       become: true
+      become_method: su
       ansible.builtin.unarchive:
         src: /tmp/k9s.tar.gz
         dest: /usr/local/bin
@@ -250,6 +256,7 @@
 
     - name: "kubeconform installieren"
       become: true
+      become_method: su
       ansible.builtin.unarchive:
         src: /tmp/kubeconform.tar.gz
         dest: /usr/local/bin
@@ -261,6 +268,7 @@
     # --- yq (mikefarah) ----------------------------------------------------
     - name: "yq installieren"
       become: true
+      become_method: su
       ansible.builtin.get_url:
         url: "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_{{ tool_arch }}"
         dest: /usr/local/bin/yq
@@ -297,6 +305,7 @@
 
     - name: "k3s Kubeconfig vom Control-Node lesen"
       become: true
+      become_method: su
       ansible.builtin.slurp:
         src: /etc/rancher/k3s/k3s.yaml
       register: k3s_kubeconfig_raw
