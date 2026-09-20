@@ -373,6 +373,18 @@
       ansible.builtin.debug:
         var: nodes.stdout_lines
 
+    - name: "Ingress-Hosts in /etc/hosts eintragen"
+      become: true
+      become_method: su
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '(^|\s){{ item }}(\s|$)'
+        line: "{{ k3s_control_ip }} {{ item }}"
+        state: present
+      loop:
+        - reifenklicker.local
+        - argocd.local
+
 # -----------------------------------------------------------------------------
 # Play 4 - ArgoCD und Cluster-Add-ons
 # -----------------------------------------------------------------------------

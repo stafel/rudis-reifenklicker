@@ -63,6 +63,38 @@ Rollout-Übung zurücksetzen (Strategiewechsel Canary ↔ Blue/Green):
 make reset        # ruft argo-rollouts/rollout_reset.sh
 ```
 
+## Zugriff (Ingress)
+
+Das Ansible-Playbook trägt zwei Hosts in `/etc/hosts` des Arbeitsplatzes ein:
+
+| URL | Ziel |
+|---|---|
+| `http://reifenklicker.local` | Anwendung (Frontend + `/api`) |
+| `http://argocd.local` | ArgoCD UI |
+
+HTTP-only, kein TLS (Lab). Traefik: 3.6.x.
+
+## ArgoCD UI
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d      # Login: admin / <Passwort>
+```
+
+Die Application wird deklarativ via `kubectl apply -f argocd/` ausgerollt.
+**ClickOps-Warnung:** Sync-Policy/Self-Heal direkt in der UI zu ändern steht
+nicht in Git und geht beim nächsten Re-Apply verloren – dauerhafte
+Konfiguration gehört ins Manifest.
+
+## Sticky Sessions
+
+Damit ein Client immer denselben Pod trifft (kein Sommer/Winter-Flackern beim
+Rolling Update), nutzt Traefik **Cookie-basierte** Sticky-Sessions über
+Service-Annotationen (im Arbeitsblatt gesetzt, nicht im Repo – siehe dort):
+`traefik.ingress.kubernetes.io/service.sticky.cookie: "true"`.
+Reines `sessionAffinity: ClientIP` wäre hinter Traefik ungeeignet (die
+Quell-IP ist die Traefik-Pod-IP).
+
 ## Lehrpersonen-Hinweise
 
 - Passwort in `k8s/02-postgres-secret.yaml` ist ein **Übungs-Platzhalter**.

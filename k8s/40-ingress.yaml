@@ -5,12 +5,14 @@ metadata:
   namespace: rudis-reifenklicker
   labels:
     app.kubernetes.io/part-of: rudis-reifenklicker
+  annotations:
+    # HTTP-only im Lab (kein TLS).
+    traefik.ingress.kubernetes.io/router.entrypoints: web
 spec:
-  # k3s bringt Traefik mit.
   ingressClassName: traefik
   rules:
-    # Kein host: erreichbar ueber die Node-/VM-IP.
-    - http:
+    - host: reifenklicker.local
+      http:
         paths:
           # /api geht direkt an das Backend ...
           - path: /api
