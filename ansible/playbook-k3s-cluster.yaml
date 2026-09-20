@@ -148,6 +148,7 @@
     # --- Betriebssystem-Pakete ---------------------------------------------
     - name: "Basispakete installieren"
       become: true
+      become_method: su
       ansible.builtin.apt:
         name:
           - python3
