@@ -1,0 +1,2 @@
+window.FRONTEND_VERSION = "${APP_VERSION}";
+window.FRONTEND_POD = "${POD_NAME}";

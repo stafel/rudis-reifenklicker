@@ -74,13 +74,18 @@
   </main>
 
   <footer class="statusbar">
-    <span class="status" id="version-badge">&hellip;</span>
-    <span class="status" id="pod-badge">&hellip;</span>
+    <span class="status chip chip-api" id="version-badge">API &hellip;</span>
+    <span class="status" id="pod-badge">Pod &hellip;</span>
+    <span class="status chip chip-ui" id="ui-badge">UI &hellip;</span>
     <span class="status" id="golden-flag">Goldfelge: aus</span>
     <span class="status" id="connection-badge">verbunden</span>
   </footer>
 
+  <div class="ui-ribbon" id="ui-ribbon" hidden></div>
+  <div class="toast" id="ui-toast" role="status" hidden></div>
+
   <script src="config.js"></script>
+  <script src="version.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

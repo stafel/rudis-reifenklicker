@@ -197,3 +197,69 @@ body[data-version="v2"] .topbar { border-bottom-color: #1f6f9c; }
 .status { font-variant-numeric: tabular-nums; }
 
 #connection-badge.offline { color: #ff8080; }
+
+/* --- Versions-Chips: API (Backend) und UI (Frontend) klar getrennt --- */
+.chip {
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+  font-weight: 600;
+}
+
+.chip-api {
+  border-color: #6a2b34;
+  background: #2a1418;
+  color: #ffc9d1;
+}
+
+.chip-ui {
+  border-color: #5b6470;
+  background: var(--bg-soft);
+  color: #d9e0e8;
+}
+
+/* Nicht-saisonale UI-Farbe: macht einen Frontend-Rollout sichtbar. */
+body[data-frontend-version="v2"] .chip-ui {
+  border-color: #2b6f9c;
+  background: #123246;
+  color: #cdeaff;
+}
+
+.ui-ribbon {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.2rem 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: #5b6470;
+  color: #fff;
+  border-radius: 0 0 8px 8px;
+  z-index: 20;
+}
+
+body[data-frontend-version="v2"] .ui-ribbon { background: #1f6f9c; }
+
+.toast {
+  position: fixed;
+  bottom: 3.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.6rem 1.1rem;
+  border-radius: 10px;
+  background: var(--ok);
+  color: #06210f;
+  font-weight: 700;
+  z-index: 30;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+  animation: toast-in 0.3s ease-out;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+

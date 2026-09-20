@@ -42,6 +42,10 @@ services:
   frontend:
     build:
       context: ./app/frontend
+      args:
+        APP_VERSION: v1
+    environment:
+      POD_NAME: reifen-web
     depends_on:
       - backend
     volumes:

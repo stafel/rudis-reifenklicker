@@ -22,28 +22,40 @@ Die App ist bewusst als klassische 3-Tier-Architektur aufgebaut:
 - **Datenbank** – PostgreSQL als `StatefulSet` mit stabilem Namen (`postgres-0`),
   stabilem DNS und persistentem Volume (stateful).
 
-## Versionen = Jahreszeiten
+## Versionen: Backend und Frontend getrennt
 
-Die Backend-Version steckt im Image-Tag und wird im UI angezeigt:
+Jede Schicht hat ihre **eigene** Version im Image-Tag. Das UI zeigt beide
+klar getrennt an:
 
-| Version | Bedeutung |
+| Chip | Quelle | Steuert |
+|---|---|---|
+| `API vX · Sommer/Winterreifen` | **Backend**-Image (`backend:v1/v2`) | Jahreszeit, Zähler, Goldfelge |
+| `UI vX · Pod frontend-…` | **Frontend**-Image (`frontend:v1/v2`) | nur den statischen UI-Build |
+
+> Wichtig: **Sommer/Winterreifen werden vom Backend gesteuert.** Die Anzeige
+> kommt aus der API-Antwort (`/api/count`). Ein Frontend-Rollout ändert die
+> Jahreszeit deshalb **nicht** – nur den `UI`-Chip (und Pod-Namen).
+
+| Backend-Version | Bedeutung |
 |---|---|
 | `v1` | **Sommerreifen-Edition** |
 | `v2` | **Winterreifen-Edition** |
 
-Dadurch wird bei einem Rolling-/Canary-/Blue-Green-Deployment sofort sichtbar,
-welche Version eine Anfrage beantwortet hat. Die `FEATURE_GOLDEN_RIM`
-ConfigMap schaltet die **Goldfelge** (Bonus-Reifen) ein – ein Beispiel für
-*Deploy ≠ Release*.
+Die Frontend-Version und der Pod-Name werden beim Container-Start aus
+`APP_VERSION` und `POD_NAME` in `version.js` gerendert (nginx-Template).
+Dadurch ist ein Frontend-Rollout sofort sichtbar: farbiger `UI`-Chip,
+Ribbon oben, ein „UI aktualisiert“-Toast beim Versionswechsel und der
+bedienende Pod. Die `FEATURE_GOLDEN_RIM` ConfigMap schaltet die
+**Goldfelge** (Bonus-Reifen) ein – ein Beispiel für *Deploy ≠ Release*.
 
 ## Repository-Struktur
 
 ```
 app/backend/            FastAPI-Anwendung + Dockerfile
-app/frontend/           nginx + statisches UI + Dockerfile
+app/frontend/           nginx + statisches UI + Dockerfile (version.js-Template)
 k8s/                    Klassische Kubernetes-Manifeste (Teil 1 & 2)
 argocd/                 ArgoCD AppProject + Application (Teil 2)
-argo-rollouts/          Canary- und Blue/Green-Rollouts (Teil 3)
+argo-rollouts/          Canary/Blue-Green + promote-all.sh (Teil 3)
 loadtest/               Locust-Lasttest (optional auch als k8s-Job)
 .github/workflows/      CI: baut Images und pusht sie nach GHCR
 ```
@@ -51,8 +63,8 @@ loadtest/               Locust-Lasttest (optional auch als k8s-Job)
 ## Voraussetzungen
 
 - Ein laufendes **k3s-Cluster** mit **ArgoCD** und **Argo Rollouts**.
-  Wird mit dem Ansible-Playbook `ansible/playbook-k3s-cluster.yaml` aus dem
-  DevOps-Repo aufgesetzt (k3s, ArgoCD, Argo Rollouts, metrics-server, Devtools).
+  Wird mit dem Ansible-Playbook `ansible/playbook-k3s-cluster.yaml` aufgesetzt
+  (k3s, ArgoCD, Argo Rollouts, metrics-server, Devtools).
 - Zugriff auf die veröffentlichten Images unter
   `ghcr.io/stafel/rudis-reifenklicker/{backend,frontend}`.
 
@@ -95,11 +107,17 @@ kubectl -n rudis-reifenklicker get pods,svc,pvc -w
   → Daten bleiben erhalten (PVC wird neu gebunden).
 - Drift: `kubectl -n rudis-reifenklicker scale deployment/backend --replicas=9`
   → ohne GitOps bleibt die Änderung bestehen (siehe Teil 2).
-- Rolling Update & Rollback:
+- Rolling Update & Rollback des **Backends** (steuert die Jahreszeit):
   ```bash
   kubectl -n rudis-reifenklicker set image deployment/backend backend=ghcr.io/stafel/rudis-reifenklicker/backend:v2
   kubectl -n rudis-reifenklicker rollout status deployment/backend
   kubectl -n rudis-reifenklicker rollout undo deployment/backend
+  ```
+- Rolling Update des **Frontends** (UI-Chip wechselt, Jahreszeit bleibt!):
+  ```bash
+  kubectl -n rudis-reifenklicker set image deployment/frontend frontend=ghcr.io/stafel/rudis-reifenklicker/frontend:v2
+  kubectl -n rudis-reifenklicker rollout status deployment/frontend
+  # Reload im Browser: "UI v2" + ggf. Toast, Saison unverändert (Backend).
   ```
 
 Erreichbar ist die App über die Node-/VM-IP (Traefik-Ingress) oder per
@@ -139,7 +157,7 @@ kubectl -n rudis-reifenklicker delete deployment backend
 kubectl -n rudis-reifenklicker apply -f argo-rollouts/backend-canary-rollout.yaml
 ```
 
-**Canary**
+**Canary (Backend, gestufte Räderwechsel)**
 
 ```bash
 kubectl argo rollouts -n rudis-reifenklicker get rollout backend -w
@@ -149,15 +167,29 @@ kubectl argo rollouts -n rudis-reifenklicker promote backend   # nächste Stufe
 kubectl argo rollouts -n rudis-reifenklicker abort backend     # Rollback
 ```
 
-**Blue/Green**
+**Canary (Frontend, optional):** analog mit
+`argo-rollouts/frontend-canary-rollout.yaml` und
+`set image frontend frontend=...:v2`.
+
+**Blue/Green (gesamte Umgebung auf einmal)**
+
+Blue/Green schaltet die **komplette stateless Umgebung** (Frontend **und**
+Backend) gemeinsam um. Beide Rollouts zeigen auf einen Preview-Service und
+werden zusammen promoted:
 
 ```bash
-kubectl -n rudis-reifenklicker apply -f argo-rollouts/backend-bluegreen-rollout.yaml
-kubectl -n rudis-reifenklicker apply -f argo-rollouts/backend-preview-service.yaml
 kubectl -n rudis-reifenklicker apply -f argo-rollouts/analysis-template.yaml
-# neue Version einspielen und manuell freigeben:
-kubectl argo rollouts -n rudis-reifenklicker promote backend
+kubectl -n rudis-reifenklicker apply -f argo-rollouts/backend-preview-service.yaml
+kubectl -n rudis-reifenklicker apply -f argo-rollouts/frontend-preview-service.yaml
+kubectl -n rudis-reifenklicker apply -f argo-rollouts/backend-bluegreen-rollout.yaml
+kubectl -n rudis-reifenklicker apply -f argo-rollouts/frontend-bluegreen-rollout.yaml
+# neue Versionen einspielen, dann die ganze Umgebung auf einmal umschalten:
+./argo-rollouts/promote-all.sh
 ```
+
+> Die **Datenbank** ist stateful und wird nicht mit umgeschaltet. Sie muss
+> mit beiden Versionen kompatibel bleiben (vorwärts-kompatible Migrationen).
+
 
 ## Lasttest mit Locust
 

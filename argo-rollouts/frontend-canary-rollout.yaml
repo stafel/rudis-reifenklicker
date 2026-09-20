@@ -1,18 +1,23 @@
-apiVersion: apps/v1
-kind: Deployment
+# OPTIONAL: Canary-Rollout fuer das Frontend.
+#
+# Das Haupt-Canary-Beispiel betrifft das Backend (backend-canary-rollout.yaml),
+# weil dort die Jahreszeit (Sommer/Winter) sichtbar wird. Analog laesst sich
+# auch die statische UI stufenweise ausrollen - das UI-Badge zeigt dann
+# gemischt "UI v1"/"UI v2".
+#
+# Voraussetzung: klassisches Frontend-Deployment loeschen, dann:
+#   kubectl -n rudis-reifenklicker delete deployment frontend
+#   kubectl -n rudis-reifenklicker apply -f argo-rollouts/frontend-canary-rollout.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: frontend
   namespace: rudis-reifenklicker
   labels:
     app: frontend
 spec:
-  replicas: 2
+  replicas: 4
   revisionHistoryLimit: 5
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
   selector:
     matchLabels:
       app: frontend
@@ -29,14 +34,11 @@ spec:
             - name: http
               containerPort: 80
           env:
-            # Wird in version.js gerendert, damit das UI den
-            # bedienenden Frontend-Pod anzeigen kann.
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
           volumeMounts:
-            # Konfiguration kommt aus der ConfigMap statt aus dem Image.
             - name: frontend-config
               mountPath: /usr/share/nginx/html/config.js
               subPath: config.js
@@ -63,3 +65,12 @@ spec:
         - name: frontend-config
           configMap:
             name: frontend-config
+  strategy:
+    canary:
+      steps:
+        - setWeight: 25
+        - pause: { duration: 60s }
+        - setWeight: 50
+        - pause: { duration: 60s }
+        - setWeight: 75
+        - pause: { duration: 60s }
