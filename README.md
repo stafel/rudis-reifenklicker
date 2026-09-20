@@ -162,7 +162,7 @@ kubectl argo rollouts -n rudis-reifenklicker promote backend
 ## Lasttest mit Locust
 
 ```bash
-source ../ansible/.venv/bin/activate    # locust wurde vom Playbook installiert
+source ansible/.venv/bin/activate    # locust wurde vom Playbook installiert
 make loadtest HOST=http://<VM-IP>
 # oder direkt:
 LOCUST_HOST=http://<VM-IP> locust -f loadtest/locustfile.py --headless -u 50 -r 5 -t 3m
@@ -184,16 +184,18 @@ kubectl top pods -n rudis-reifenklicker
 
 ## Plattform-Setup mit Ansible
 
-Im DevOps-Repo (nicht in diesem Repo):
+Das Playbook liegt mit im Repo:
 
 ```bash
 cd ansible
+cp inventory.example inventory     # Hosts/User anpassen
 ansible-playbook playbook-k3s-cluster.yaml
 ```
 
-Das Playbook installiert k3s (Control + Agents), richtet kubectl auf dem
+Das Playbook installiert k3s (Control + Agents), richtet kubectl und die
+Devtools (helm, argocd, argo rollouts, k9s, podman, locust, ...) auf dem
 Arbeitsplatz ein und installiert ArgoCD, Argo Rollouts sowie metrics-server.
-Prometheus ist optional (`install_prometheus: true`).
+Prometheus ist optional (`install_prometheus: true` in `group_vars/all.yml`).
 
 ## Hinweise für die Lehrperson
 

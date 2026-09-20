@@ -1,0 +1,21 @@
+---
+# Zentrale Variablen fuer das k3s/ArgoCD-Setup.
+# Kann pro Umgebung in einem anderen Inventory ueberschrieben werden.
+
+# --- k3s ---
+# "stable" laesst den Installer die aktuelle stabile Version waehlen.
+k3s_channel: stable
+# Zusaetzliche Subject Alternative Names fuer das API-Server-Zertifikat,
+# z.B. der DNS-Name der VMs (host.docker.internal).
+k3s_tls_san_extra: []
+
+# --- Cluster-Add-ons ---
+install_metrics_server: true
+install_argo_rollouts: true
+install_prometheus: false
+# ArgoCD-App automatisch anlegen (sonst machen es die Studierenden).
+bootstrap_argocd_app: false
+
+# --- Lokale Devtools (auf dem Controller/Arbeitsplatz) ---
+devtools_venv: "{{ playbook_dir }}/.venv"
+tool_arch: amd64

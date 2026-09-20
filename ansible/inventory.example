@@ -1,0 +1,13 @@
+# Vorlage: kopiere diese Datei nach 'inventory' und passe Hosts/User an.
+#
+#   cp inventory.example inventory
+#   ansible-playbook playbook-k3s-cluster.yaml
+#
+# Bei nur einer VM diese gleichzeitig als Control- und Agent-Node
+# eintragen (dann ist es ein Single-Node-Cluster).
+
+[k3s_control]
+lab01 ansible_host=192.168.122.35 ansible_user=ansible
+
+[k3s_agents]
+lab02 ansible_host=192.168.122.128 ansible_user=ansible

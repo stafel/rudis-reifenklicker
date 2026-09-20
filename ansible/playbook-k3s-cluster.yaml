@@ -1,0 +1,455 @@
+---
+# =============================================================================
+#  Rudis Reifenklicker - Plattform-Setup (k3s + ArgoCD + Devtools)
+# =============================================================================
+#  Ein einziges, lesbares Playbook mit vier Plays:
+#
+#    Play 1  k3s Server auf den Control-Nodes (k3s_control)
+#    Play 2  k3s Agenten auf den Worker-Nodes (k3s_agents)
+#    Play 3  Devtools auf dem lokalen Arbeitsplatz + kubectl gegen k3s
+#    Play 4  ArgoCD, Argo Rollouts, metrics-server (und optional Prometheus)
+#
+#  Aufruf:
+#      ansible-playbook playbook-k3s-cluster.yaml
+#
+#  Voraussetzungen:
+#      - Inventory-Gruppen k3s_control / k3s_agents gefuellt
+#      - SSH-Zugriff mit key und passwortlosem sudo
+#      - Internet auf allen Nodes
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Play 1 - k3s Server (Control-Node)
+# -----------------------------------------------------------------------------
+- name: "Play 1 - k3s Server installieren"
+  hosts: k3s_control
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: "Pakete fuer die Installation bereitstellen"
+      ansible.builtin.apt:
+        name:
+          - curl
+          - ca-certificates
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: "Erreichbare Control-IP bestimmen"
+      ansible.builtin.set_fact:
+        k3s_control_ip: >-
+          {{ ansible_host if (ansible_host is defined)
+             else (ansible_default_ipv4.address if (ansible_default_ipv4 is defined)
+             else inventory_hostname) }}
+
+    - name: "API-Server-Argumente zusammenstellen"
+      ansible.builtin.set_fact:
+        k3s_server_args: >-
+          server
+          --tls-san={{ k3s_control_ip }}
+          {% for san in k3s_tls_san_extra %}--tls-san={{ san }} {% endfor %}
+          --write-kubeconfig-mode=600
+
+    - name: "k3s Installationsskript herunterladen"
+      ansible.builtin.get_url:
+        url: https://get.k3s.io
+        dest: /usr/local/bin/k3s-install.sh
+        mode: "0755"
+
+    - name: "k3s Server installieren (idempotent)"
+      ansible.builtin.command:
+        cmd: /usr/local/bin/k3s-install.sh
+        creates: /usr/local/bin/k3s
+      environment:
+        INSTALL_K3S_CHANNEL: "{{ k3s_channel }}"
+        INSTALL_K3S_EXEC: "{{ k3s_server_args }}"
+
+    - name: "Auf den Node-Token warten"
+      ansible.builtin.wait_for:
+        path: /var/lib/rancher/k3s/server/node-token
+        timeout: 180
+
+    - name: "Node-Token auslesen"
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: k3s_token_raw
+
+    - name: "Node-Token als Fakt bereitstellen"
+      ansible.builtin.set_fact:
+        k3s_token: "{{ k3s_token_raw.content | b64decode | trim }}"
+
+    - name: "k3s Status anzeigen"
+      ansible.builtin.command:
+        cmd: k3s kubectl get nodes -o wide
+      register: k3s_nodes
+      changed_when: false
+
+    - name: "Installierte Nodes"
+      ansible.builtin.debug:
+        var: k3s_nodes.stdout_lines
+
+# -----------------------------------------------------------------------------
+# Play 2 - k3s Agenten (Worker-Nodes)
+# -----------------------------------------------------------------------------
+- name: "Play 2 - k3s Agenten installieren"
+  hosts: k3s_agents
+  become: true
+  gather_facts: true
+
+  vars:
+    k3s_control_host: "{{ groups['k3s_control'][0] }}"
+
+  tasks:
+    - name: "Pakete fuer die Installation bereitstellen"
+      ansible.builtin.apt:
+        name:
+          - curl
+          - ca-certificates
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: "k3s Installationsskript herunterladen"
+      ansible.builtin.get_url:
+        url: https://get.k3s.io
+        dest: /usr/local/bin/k3s-install.sh
+        mode: "0755"
+
+    - name: "k3s Agent installieren (idempotent)"
+      ansible.builtin.command:
+        cmd: /usr/local/bin/k3s-install.sh
+        creates: /usr/local/bin/k3s
+      environment:
+        INSTALL_K3S_CHANNEL: "{{ k3s_channel }}"
+        K3S_URL: "https://{{ hostvars[k3s_control_host].k3s_control_ip }}:6443"
+        K3S_TOKEN: "{{ hostvars[k3s_control_host].k3s_token }}"
+
+# -----------------------------------------------------------------------------
+# Play 3 - Devtools auf dem lokalen Arbeitsplatz + kubeconfig
+# -----------------------------------------------------------------------------
+- name: "Play 3 - Devtools installieren und k3s in kubectl registrieren"
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    k3s_control_host: "{{ groups['k3s_control'][0] }}"
+    k3s_control_ip: "{{ hostvars[k3s_control_host].k3s_control_ip }}"
+    local_home: "{{ ansible_env.HOME }}"
+    kube_dir: "{{ ansible_env.HOME }}/.kube"
+    venv: "{{ devtools_venv }}"
+
+  tasks:
+    # --- Betriebssystem-Pakete ---------------------------------------------
+    - name: "Basispakete installieren"
+      become: true
+      ansible.builtin.apt:
+        name:
+          - python3
+          - python3-venv
+          - python3-pip
+          - git
+          - curl
+          - wget
+          - unzip
+          - tar
+          - jq
+          - dnsutils
+          - ca-certificates
+          - gnupg
+          - apt-transport-https
+          - podman
+          - buildah
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    # --- Python-Umgebung (PEP 668: venv statt system pip) -------------------
+    - name: "Python-venv erstellen"
+      ansible.builtin.command:
+        cmd: "python3 -m venv {{ venv }}"
+        creates: "{{ venv }}/bin/activate"
+
+    - name: "Python-Pakete installieren (kubernetes, PyYAML, locust)"
+      ansible.builtin.pip:
+        name:
+          - kubernetes
+          - PyYAML
+          - locust
+        state: present
+        virtualenv: "{{ venv }}"
+        virtualenv_command: "python3 -m venv"
+
+    # --- kubectl -----------------------------------------------------------
+    - name: "Aktuelle kubectl-Version ermitteln"
+      ansible.builtin.uri:
+        url: https://dl.k8s.io/release/stable.txt
+        return_content: true
+      register: kubectl_stable
+      changed_when: false
+      check_mode: false
+
+    - name: "kubectl installieren"
+      become: true
+      ansible.builtin.get_url:
+        url: "https://dl.k8s.io/release/{{ kubectl_stable.content | trim }}/bin/linux/{{ tool_arch }}/kubectl"
+        dest: /usr/local/bin/kubectl
+        mode: "0755"
+
+    # --- helm --------------------------------------------------------------
+    - name: "Helm installieren"
+      become: true
+      ansible.builtin.shell:
+        cmd: curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        creates: /usr/local/bin/helm
+
+    # --- ArgoCD CLI --------------------------------------------------------
+    - name: "ArgoCD CLI installieren"
+      become: true
+      ansible.builtin.get_url:
+        url: "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-{{ tool_arch }}"
+        dest: /usr/local/bin/argocd
+        mode: "0755"
+
+    # --- Argo Rollouts kubectl-Plugin -------------------------------------
+    - name: "kubectl argo rollouts Plugin installieren"
+      become: true
+      ansible.builtin.get_url:
+        url: "https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-{{ tool_arch }}"
+        dest: /usr/local/bin/kubectl-argo-rollouts
+        mode: "0755"
+
+    # --- k9s ---------------------------------------------------------------
+    - name: "k9s herunterladen"
+      ansible.builtin.get_url:
+        url: "https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_{{ tool_arch }}.tar.gz"
+        dest: /tmp/k9s.tar.gz
+        mode: "0644"
+
+    - name: "k9s installieren"
+      become: true
+      ansible.builtin.unarchive:
+        src: /tmp/k9s.tar.gz
+        dest: /usr/local/bin
+        remote_src: true
+        include:
+          - k9s
+        mode: "0755"
+
+    # --- kubeconform -------------------------------------------------------
+    - name: "kubeconform herunterladen"
+      ansible.builtin.get_url:
+        url: "https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-{{ tool_arch }}.tar.gz"
+        dest: /tmp/kubeconform.tar.gz
+        mode: "0644"
+
+    - name: "kubeconform installieren"
+      become: true
+      ansible.builtin.unarchive:
+        src: /tmp/kubeconform.tar.gz
+        dest: /usr/local/bin
+        remote_src: true
+        include:
+          - kubeconform
+        mode: "0755"
+
+    # --- yq (mikefarah) ----------------------------------------------------
+    - name: "yq installieren"
+      become: true
+      ansible.builtin.get_url:
+        url: "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_{{ tool_arch }}"
+        dest: /usr/local/bin/yq
+        mode: "0755"
+
+    # --- krew (kubectl-Plugin-Manager) ------------------------------------
+    - name: "krew installieren"
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          cd "${tmp}"
+          os="$(uname | tr '[:upper:]' '[:lower:]')"
+          arch="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')"
+          krew="krew-${os}_${arch}"
+          curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${krew}.tar.gz"
+          tar zxf "${krew}.tar.gz"
+          "./${krew}" install krew
+        creates: "{{ local_home }}/.krew/bin/kubectl-krew"
+
+    - name: "krew in den PATH aufnehmen"
+      ansible.builtin.lineinfile:
+        path: "{{ local_home }}/.bashrc"
+        line: 'export PATH="$HOME/.krew/bin:$PATH"'
+        state: present
+        create: true
+
+    # --- k3s in kubectl registrieren --------------------------------------
+    - name: "Kubeconfig-Verzeichnis erstellen"
+      ansible.builtin.file:
+        path: "{{ kube_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: "k3s Kubeconfig vom Control-Node lesen"
+      become: true
+      ansible.builtin.slurp:
+        src: /etc/rancher/k3s/k3s.yaml
+      register: k3s_kubeconfig_raw
+      delegate_to: "{{ k3s_control_host }}"
+
+    - name: "Kubeconfig schreiben (Server-URL auf die Control-IP umbiegen)"
+      ansible.builtin.copy:
+        dest: "{{ kube_dir }}/rudis-reifenklicker.yaml"
+        mode: "0600"
+        content: >-
+          {{ (k3s_kubeconfig_raw.content | b64decode)
+             | replace('https://127.0.0.1:6443', 'https://' ~ k3s_control_ip ~ ':6443') }}
+
+    - name: "Kontext umbenennen (default -> rudis-reifenklicker)"
+      ansible.builtin.command:
+        cmd: "kubectl config rename-context default rudis-reifenklicker --kubeconfig={{ kube_dir }}/rudis-reifenklicker.yaml"
+      changed_when: false
+      environment:
+        PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+
+    - name: "Leere Kubeconfig anlegen, falls noch keine existiert"
+      ansible.builtin.copy:
+        dest: "{{ kube_dir }}/config"
+        content: ""
+        force: false
+        mode: "0600"
+
+    - name: "Kubeconfigs zusammenfuehren"
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          export KUBECONFIG="{{ kube_dir }}/config:{{ kube_dir }}/rudis-reifenklicker.yaml"
+          kubectl config view --flatten > "{{ kube_dir }}/config.merged"
+          mv "{{ kube_dir }}/config.merged" "{{ kube_dir }}/config"
+          chmod 600 "{{ kube_dir }}/config"
+          kubectl config use-context rudis-reifenklicker
+      changed_when: true
+      environment:
+        PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+
+    - name: "Smoke-Test: Cluster erreichbar?"
+      ansible.builtin.command:
+        cmd: kubectl get nodes -o wide
+      register: nodes
+      changed_when: false
+      environment:
+        KUBECONFIG: "{{ kube_dir }}/config"
+        PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+
+    - name: "Registrierte Nodes"
+      ansible.builtin.debug:
+        var: nodes.stdout_lines
+
+# -----------------------------------------------------------------------------
+# Play 4 - ArgoCD und Cluster-Add-ons
+# -----------------------------------------------------------------------------
+- name: "Play 4 - ArgoCD, Argo Rollouts und metrics-server installieren"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    local_home: "{{ lookup('env', 'HOME') }}"
+    kube_dir: "{{ lookup('env', 'HOME') }}/.kube"
+    app_repo_raw: "https://raw.githubusercontent.com/stafel/rudis-reifenklicker/main"
+
+  environment:
+    KUBECONFIG: "{{ lookup('env', 'HOME') }}/.kube/config"
+    PATH: "/usr/local/bin:/usr/bin:/bin:{{ lookup('env', 'PATH') }}"
+
+  tasks:
+    - name: "Helm-Repositories hinzufuegen"
+      ansible.builtin.command:
+        cmd: "helm repo add --force-update {{ item.name }} {{ item.url }}"
+      loop:
+        - { name: argo, url: "https://argoproj.github.io/argo-helm" }
+        - { name: prometheus-community, url: "https://prometheus-community.github.io/helm-charts" }
+        - { name: metrics-server, url: "https://kubernetes-sigs.github.io/metrics-server/" }
+      changed_when: false
+
+    - name: "Helm-Repositories aktualisieren"
+      ansible.builtin.command:
+        cmd: helm repo update
+      changed_when: false
+
+    - name: "ArgoCD installieren"
+      ansible.builtin.command:
+        cmd: >-
+          helm upgrade --install argocd argo/argo-cd
+          --namespace argocd --create-namespace
+          --values {{ playbook_dir }}/files/argocd-values.yaml
+          --wait --timeout 10m
+
+    - name: "Auf den ArgoCD-Server warten"
+      ansible.builtin.command:
+        cmd: kubectl -n argocd rollout status deployment/argocd-server --timeout=300s
+      changed_when: false
+
+    - name: "metrics-server pruefen"
+      ansible.builtin.command:
+        cmd: kubectl -n kube-system get deployment metrics-server
+      register: metrics_deploy
+      failed_when: false
+      changed_when: false
+      when: install_metrics_server | bool
+
+    - name: "metrics-server installieren (Fallback, falls nicht im k3s enthalten)"
+      ansible.builtin.command:
+        cmd: >-
+          helm upgrade --install metrics-server metrics-server/metrics-server
+          --namespace kube-system
+          --set 'args[0]=--kubelet-insecure-tls'
+          --wait --timeout 5m
+      when:
+        - install_metrics_server | bool
+        - "'metrics-server' not in metrics_deploy.stdout"
+
+    - name: "Argo Rollouts Controller installieren"
+      ansible.builtin.command:
+        cmd: >-
+          helm upgrade --install argo-rollouts argo/argo-rollouts
+          --namespace argo-rollouts --create-namespace
+          --wait --timeout 5m
+      when: install_argo_rollouts | bool
+
+    - name: "Prometheus-Stack installieren (optional)"
+      ansible.builtin.command:
+        cmd: >-
+          helm upgrade --install kube-prometheus-stack
+          prometheus-community/kube-prometheus-stack
+          --namespace monitoring --create-namespace
+          --values {{ playbook_dir }}/files/prometheus-minimal-values.yaml
+          --wait --timeout 15m
+      when: install_prometheus | bool
+
+    - name: "ArgoCD Admin-Passwort auslesen"
+      ansible.builtin.command:
+        cmd: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath={.data.password}
+      register: argocd_admin
+      failed_when: false
+      changed_when: false
+
+    - name: "Zugangsinformationen"
+      ansible.builtin.debug:
+        msg:
+          - "ArgoCD UI:    kubectl -n argocd port-forward svc/argocd-server 8080:443"
+          - "ArgoCD Login: admin / {{ argocd_admin.stdout | b64decode if argocd_admin.rc == 0 else '(Secret noch nicht bereit)' }}"
+          - "App anlegen:  kubectl apply -f {{ app_repo_raw }}/argocd/project.yaml"
+          - "              kubectl apply -f {{ app_repo_raw }}/argocd/application.yaml"
+
+    - name: "ArgoCD Application bootstrappen (optional)"
+      ansible.builtin.command:
+        cmd: "kubectl apply -f {{ item }}"
+      loop:
+        - "{{ app_repo_raw }}/argocd/project.yaml"
+        - "{{ app_repo_raw }}/argocd/application.yaml"
+      when: bootstrap_argocd_app | bool
