@@ -6,6 +6,11 @@ metadata:
   labels:
     app: postgres
 spec:
+
+  ## Headless Service: liefert stabile DNS-Namen wie
+  ## postgres-0.postgres-headless.rudis-reifenklicker.svc.cluster.local
+  #clusterIP: None
+
   # Regulaerer ClusterIP-Service, auf den sich das Backend verbindet.
   selector:
     app: postgres
