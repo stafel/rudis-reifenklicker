@@ -57,7 +57,7 @@ spec:
             httpGet:
               path: /api/readyz
               port: http
-            initialDelaySeconds: 5
+            initialDelaySeconds: 15 # Extrahoch um Fehler in Locust zu provozieren = mehr sichtbarkeit, 5 sec sind mehr als genug
             periodSeconds: 5
           livenessProbe:
             httpGet:
