@@ -6,7 +6,7 @@ metadata:
 spec:
   description: Rudis Reifenklicker - Deployment-Uebung
   sourceRepos:
-    - https://github.com/stafel/rudis-reifenklicker.git
+    - '*' # https://github.com/stafel/rudis-reifenklicker.git # Auskommentiert damit auch dein forked repo funktioniert
   destinations:
     - namespace: rudis-reifenklicker
       server: https://kubernetes.default.svc
