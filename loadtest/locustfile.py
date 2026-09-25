@@ -24,7 +24,7 @@ class ReifenklickerUser(HttpUser):
     def on_start(self):
         self.client.get("/api/count", name="/api/count")
 
-    @task(5)
+    @task(1)
     def click(self):
         with self.client.post("/api/click", name="/api/click", catch_response=True) as response:
             if response.status_code != 200:
@@ -59,7 +59,7 @@ def _report(environment, **kwargs):
         snapshot = dict(VERSION_COUNTS)
     total = sum(snapshot.values()) or 1
 
-    print("\n=== Versionsverteilung (Canary-Beobachtung) ===")
+    print("\n=== Versionsverteilung ===")
     for version, count in sorted(snapshot.items()):
         print(f"  {version:>10}: {count:6d}  ({count / total * 100:5.1f} %)")
     print("===============================================\n")
