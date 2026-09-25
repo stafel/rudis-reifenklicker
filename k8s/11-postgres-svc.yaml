@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -10,6 +11,22 @@ spec:
   # Headless Service: liefert stabile DNS-Namen wie
   # postgres-0.postgres-headless.rudis-reifenklicker.svc.cluster.local
   clusterIP: None
+
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: rudis-reifenklicker
+  labels:
+    app: postgres
+spec:
 
   # Regulaerer ClusterIP-Service, auf den sich das Backend verbindet.
   selector:
