@@ -1,8 +1,6 @@
 # Rudis Reifenklicker
 
-Drei-Schichten-Beispielanwendung für die Kubernetes-/Deployment-Übung
-(`IN266 DevOps`). Statt Kekse zu klicken werden bei *Rudis Autoteile* Reifen
-montiert.
+Drei-Schichten-Beispielanwendung für die Kubernetes-/Deployment-Übung.
 
 - **Frontend** (stateless): statisches HTML/JS, nginx. `Deployment`.
 - **Backend API** (stateless): FastAPI, hält keinen eigenen Zustand. `Deployment`.
@@ -20,8 +18,6 @@ Alle Aufgaben, Konfigurations- und Verständnisfragen stehen im **Arbeitsblatt**
 
 1. **Klassisches Kubernetes:** Manifeste aus `k8s/` mit `kubectl` ausrollen.
 2. **GitOps mit ArgoCD:** Application konfigurieren, Drift erzeugen, Self-Heal.
-3. **Progressive Delivery:** Canary und Blue/Green mit Argo Rollouts.
-4. Optional: **Lasttest** (Locust) und **HPA**.
 
 ## Repo-Struktur
 
@@ -35,70 +31,3 @@ loadtest/          Locust-Lasttest (lokal)
 ansible/           k3s + ArgoCD + Devtools Playbook
 .github/workflows/ CI: Images nach GHCR
 ```
-
-## Lokale Entwicklung (ohne Cluster)
-
-```bash
-podman compose up --build      # Frontend http://localhost:8080, API :8000
-podman compose down -v
-```
-
-## Deployment
-
-Images: `ghcr.io/stafel/rudis-reifenklicker/{backend,frontend}` (Tag `v1`/`v2`,
-Jahreszeiten: v1 = Sommerreifen, v2 = Winterreifen – gesteuert vom **Backend**).
-Die GHCR-Packages müssen einmalig auf *public* gestellt werden.
-
-Cluster + Werkzeuge:
-
-```bash
-cd ansible
-cp inventory.example inventory   # Hosts/User anpassen
-ansible-playbook playbook-k3s-cluster.yaml --ask-become-pass
-```
-
-Rollout-Übung zurücksetzen (Strategiewechsel Canary ↔ Blue/Green):
-
-```bash
-make reset        # ruft argo-rollouts/rollout_reset.sh
-```
-
-## Zugriff (Ingress)
-
-Das Ansible-Playbook trägt zwei Hosts in `/etc/hosts` des Arbeitsplatzes ein:
-
-| URL | Ziel |
-|---|---|
-| `http://reifenklicker.local` | Anwendung (Frontend + `/api`) |
-| `http://argocd.local` | ArgoCD UI |
-
-HTTP-only, kein TLS (Lab). Traefik: 3.6.x.
-
-## ArgoCD UI
-
-```bash
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath='{.data.password}' | base64 -d      # Login: admin / <Passwort>
-```
-
-Die Application wird deklarativ via `kubectl apply -f argocd/` ausgerollt.
-**ClickOps-Warnung:** Sync-Policy/Self-Heal direkt in der UI zu ändern steht
-nicht in Git und geht beim nächsten Re-Apply verloren – dauerhafte
-Konfiguration gehört ins Manifest.
-
-## Sticky Sessions
-
-Damit ein Client immer denselben Pod trifft (kein Sommer/Winter-Flackern beim
-Rolling Update), nutzt Traefik **Cookie-basierte** Sticky-Sessions über
-Service-Annotationen (im Arbeitsblatt gesetzt, nicht im Repo – siehe dort):
-`traefik.ingress.kubernetes.io/service.sticky.cookie: "true"`.
-Reines `sessionAffinity: ClientIP` wäre hinter Traefik ungeeignet (die
-Quell-IP ist die Traefik-Pod-IP).
-
-## Lehrpersonen-Hinweise
-
-- Passwort in `k8s/02-postgres-secret.yaml` ist ein **Übungs-Platzhalter**.
-- `argocd/application.yaml` ist absichtlich **ohne** Self-Heal/Prune und ohne
-  `ignoreDifferences` – das konfigurieren die Studierenden im Arbeitsblatt
-  (inkl. HPA-Konflikt).
-- Der HPA-Lasttest ist **vollständig optional**.
