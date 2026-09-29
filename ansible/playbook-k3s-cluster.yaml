@@ -309,6 +309,7 @@
           tar zxf "${krew}.tar.gz"
           "./${krew}" install krew
         creates: "{{ local_home }}/.krew/bin/kubectl-krew"
+        executable: /bin/bash
 
     - name: "krew in den PATH aufnehmen"
       ansible.builtin.lineinfile:
@@ -355,6 +356,7 @@
           mv "{{ kube_dir }}/config.merged" "{{ kube_dir }}/config"
           chmod 600 "{{ kube_dir }}/config"
           kubectl config use-context rudis-reifenklicker
+        executable: /bin/bash
       changed_when: true
       environment:
         PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
