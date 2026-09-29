@@ -181,10 +181,9 @@
           - unzip
           - tar
           - jq
-          - dnsutils
+          - bind9-dnsutils
           - ca-certificates
           - gnupg
-          - apt-transport-https
           - podman
           - buildah
         state: present

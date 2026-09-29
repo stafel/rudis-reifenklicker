@@ -29,7 +29,7 @@ loadtest:
 	cd loadtest && LOCUST_HOST=$(HOST) locust --config locust.conf
 
 validate:
-	yamllint k8s argocd argo-rollouts .github
+	yamllint k8s argocd argo-rollouts .github ansible
 
 reset:
 	./argo-rollouts/rollout_reset.sh
