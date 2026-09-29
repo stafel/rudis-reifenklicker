@@ -256,6 +256,7 @@
         url: "https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_{{ tool_arch }}.tar.gz"
         dest: /tmp/k9s.tar.gz
         mode: "0644"
+      check_mode: false
 
     - name: "k9s installieren"
       become: true
@@ -274,6 +275,7 @@
         url: "https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-{{ tool_arch }}.tar.gz"
         dest: /tmp/kubeconform.tar.gz
         mode: "0644"
+      check_mode: false
 
     - name: "kubeconform installieren"
       become: true
