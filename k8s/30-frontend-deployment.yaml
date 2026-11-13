@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: ghcr.io/stafel/rudis-reifenklicker/frontend:v1
+          image: ghcr.io/stafel/rudis-reifenklicker/frontend:v2.1
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
