@@ -9,7 +9,7 @@ spec:
   project: rudis-reifenklicker
   source:
     repoURL: https://github.com/stafel/rudis-reifenklicker.git
-    targetRevision: main
+    targetRevision: feat/otel
     path: k8s
   destination:
     server: https://kubernetes.default.svc
