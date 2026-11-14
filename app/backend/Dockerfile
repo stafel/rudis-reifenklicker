@@ -27,10 +27,10 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/healthz')"
 
 ENV OTEL_SERVICE_NAME=reifenklicker-backend
-ENV OTEL_TRACES_EXPORTER=otlp
-ENV OTEL_METRICS_EXPORTER=otlp
-ENV OTEL_LOGS_EXPORTER=otlp
+ENV OTEL_TRACES_EXPORTER=debug,otlp
+ENV OTEL_METRICS_EXPORTER=debug,otlp
+ENV OTEL_LOGS_EXPORTER=debug,otlp
 
-ENV OTEL_EXPORTER_OTLP_ENDPOINT="http://opentelemetry-collector.otelo11y-otel-collector.svc.cluster.local"
+ENV OTEL_EXPORTER_OTLP_ENDPOINT="http://opentelemetry-collector.otelo11y-otel-collector.svc.cluster.local:4318"
 
 CMD ["opentelemetry-instrument", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
