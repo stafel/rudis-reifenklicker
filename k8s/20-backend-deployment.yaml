@@ -54,7 +54,7 @@ spec:
                   name: postgres-secret
                   key: POSTGRES_PASSWORD
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "otelo11y-otel-collector-opentelemetry-collector.otelo11y-otel-collector.svc.cluster.local:4318"
+              value: "http://otelo11y-otel-collector-opentelemetry-collector.otelo11y-otel-collector.svc.cluster.local:4318"
           readinessProbe:
             httpGet:
               path: /api/readyz
