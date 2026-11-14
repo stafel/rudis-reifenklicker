@@ -25,7 +25,7 @@ spec:
       containers:
         - name: backend
           # Version steckt im Image-Tag: v1 = Sommerreifen, v2 = Winterreifen.
-          image: ghcr.io/stafel/rudis-reifenklicker/backend:v2.1.1
+          image: ghcr.io/stafel/rudis-reifenklicker/backend:v2.1.2
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
